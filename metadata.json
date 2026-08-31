@@ -1,0 +1,7 @@
+{
+  "name": "Northstar Reflex",
+  "description": "A delivery-tracking prototype connecting Retailers, Dispatchers, Riders, and Customers with QR-verified proof of delivery and role-scoped views.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
