@@ -51,7 +51,7 @@ No `.env` setup is required to run the app locally. `.env.example` documents `GE
 
 ## Quick Start (FastAPI backend)
 
-**Prerequisites:** Python 3.10+, PostgreSQL (optional — falls back to SQLite)
+**Prerequisites:** Python 3.10+, PostgreSQL
 
 ```bash
 cd backend
@@ -59,14 +59,14 @@ python3 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Optional — defaults to sqlite:///./northstar_reflex.db if unset
+# Required PostgreSQL connection string and optional QR secret
 export DATABASE_URL="postgresql://user:password@localhost:5432/northstar"
-export QR_SECRET_KEY="your-hmac-signing-secret"
+export QR_SECRET="your-hmac-signing-secret"
 
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Demo data seeds automatically on startup (skipped if orders already exist). Interactive API docs are at `http://localhost:8000/docs`.
+Interactive API docs are at `http://localhost:8000/docs`.
 
 ## User Flow
 
