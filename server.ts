@@ -8,13 +8,15 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// In-Memory Durable Store for the Node Runtime Environment
-const QR_SECRET_KEY = process.env.QR_SECRET_KEY || 'northstar-reflex-secure-signing-secret-2026';
+// In-Memory Store for the Node Runtime Environment
+// NOTE: This store is scratch state only, cleared on every restart.
+// Persistent data lives in the Postgres-backed FastAPI backend (see backend/).
+const QR_SECRET = process.env.QR_SECRET || 'northstar-reflex-secure-signing-secret-2026';
 
 function generateQrToken(orderId: string): string {
   const nonce = crypto.randomBytes(6).toString('hex');
   const payload = `${orderId}:${nonce}`;
-  const signature = crypto.createHmac('sha256', QR_SECRET_KEY).update(payload).digest('hex').slice(0, 16);
+  const signature = crypto.createHmac('sha256', QR_SECRET).update(payload).digest('hex').slice(0, 16);
   return `ntk_${nonce}_${signature}`;
 }
 
@@ -25,7 +27,7 @@ function verifyQrToken(orderId: string, token: string): boolean {
   const nonce = parts[1];
   const providedSig = parts[2];
   const payload = `${orderId}:${nonce}`;
-  const expectedSig = crypto.createHmac('sha256', QR_SECRET_KEY).update(payload).digest('hex').slice(0, 16);
+  const expectedSig = crypto.createHmac('sha256', QR_SECRET).update(payload).digest('hex').slice(0, 16);
   return crypto.timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig));
 }
 
@@ -62,203 +64,35 @@ export interface CatalogItemRecord {
   estimated_prep_minutes: string;
 }
 
+// Both stores start empty. Catalog items are added via POST /catalog,
+// orders are created via POST /orders — no fixture/demo data is seeded.
 let catalogStore: CatalogItemRecord[] = [];
 let ordersStore: OrderRecord[] = [];
-
-function initSeedData() {
-  catalogStore = [
-    {
-      id: 'cat_item_01',
-      name: 'Cold Brew Reserve & Single-Origin Beans',
-      description: 'Nitro-infused Ethiopian Yirgacheffe concentrate with 250g whole roasted beans.',
-      category: 'Beverages & Coffee',
-      price: '$24.50',
-      image_url: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80',
-      estimated_prep_minutes: '10-15 min',
-    },
-    {
-      id: 'cat_item_02',
-      name: 'Artisan Sourdough & Truffle Butter Crate',
-      description: 'Slow-fermented country loaf paired with cultured French butter and black truffle sea salt.',
-      category: 'Bakery & Pantry',
-      price: '$18.00',
-      image_url: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=600&auto=format&fit=crop&q=80',
-      estimated_prep_minutes: '15-20 min',
-    },
-    {
-      id: 'cat_item_03',
-      name: 'Handcrafted Ramen Dinner Kit for Two',
-      description: 'Fresh alkaline noodles, 18-hour tonkotsu broth, chashu pork belly, marinated ajitsuke tamago.',
-      category: 'Gourmet Meal Kits',
-      price: '$38.00',
-      image_url: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600&auto=format&fit=crop&q=80',
-      estimated_prep_minutes: '20-25 min',
-    },
-    {
-      id: 'cat_item_04',
-      name: 'Botanical Immunity Elixirs (4-Pack)',
-      description: 'Cold-pressed ginger root, yuzu, turmeric, wild mountain honey, and sparkling mineral spring water.',
-      category: 'Wellness & Tonics',
-      price: '$22.00',
-      image_url: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=600&auto=format&fit=crop&q=80',
-      estimated_prep_minutes: '5-10 min',
-    },
-  ];
-
-  const now = new Date();
-  const subMinutes = (m: number) => new Date(now.getTime() - m * 60000).toISOString();
-
-  const id1 = 'ord-req-001-88f2';
-  const token1 = generateQrToken(id1);
-
-  const id2 = 'ord-asg-002-39c1';
-  const token2 = generateQrToken(id2);
-
-  const id3 = 'ord-pkd-003-77a9';
-  const token3 = generateQrToken(id3);
-
-  const id4 = 'ord-dlv-004-12e5';
-  const token4 = generateQrToken(id4);
-
-  ordersStore = [
-    {
-      id: id1,
-      retailer_id: 'ret_northstar_01',
-      customer_name: 'Maya Lin',
-      customer_phone: '+1 (555) 438-9210',
-      delivery_address: '452 Pinecrest Ave, Apt 3B, Downtown',
-      item_description: 'Cold Brew Reserve & Single-Origin Beans (Qty: 2)',
-      status: 'requested',
-      assigned_rider_id: null,
-      qr_token: token1,
-      created_at: subMinutes(14),
-      updated_at: subMinutes(14),
-      status_history: [
-        {
-          id: 'hist-1',
-          order_id: id1,
-          status: 'requested',
-          changed_by: 'ret_northstar_01',
-          timestamp: subMinutes(14),
-        },
-      ],
-    },
-    {
-      id: id2,
-      retailer_id: 'ret_northstar_01',
-      customer_name: 'Leo Sterling',
-      customer_phone: '+1 (555) 892-1144',
-      delivery_address: '1208 Harbor View Blvd, Suite 400',
-      item_description: 'Artisan Sourdough & Truffle Butter Crate (Qty: 1)',
-      status: 'assigned',
-      assigned_rider_id: 'rider_alex_01',
-      qr_token: token2,
-      created_at: subMinutes(28),
-      updated_at: subMinutes(19),
-      status_history: [
-        {
-          id: 'hist-2-1',
-          order_id: id2,
-          status: 'requested',
-          changed_by: 'ret_northstar_01',
-          timestamp: subMinutes(28),
-        },
-        {
-          id: 'hist-2-2',
-          order_id: id2,
-          status: 'assigned',
-          changed_by: 'dispatcher (dispatcher_hq) -> rider_alex_01',
-          timestamp: subMinutes(19),
-        },
-      ],
-    },
-    {
-      id: id3,
-      retailer_id: 'ret_northstar_01',
-      customer_name: 'Elena Rostova',
-      customer_phone: '+1 (555) 762-3301',
-      delivery_address: '88 Willowbrook Road, Floor 2',
-      item_description: 'Handcrafted Ramen Dinner Kit for Two (Qty: 1)',
-      status: 'picked_up',
-      assigned_rider_id: 'rider_sam_02',
-      qr_token: token3,
-      created_at: subMinutes(45),
-      updated_at: subMinutes(12),
-      status_history: [
-        {
-          id: 'hist-3-1',
-          order_id: id3,
-          status: 'requested',
-          changed_by: 'ret_northstar_01',
-          timestamp: subMinutes(45),
-        },
-        {
-          id: 'hist-3-2',
-          order_id: id3,
-          status: 'assigned',
-          changed_by: 'dispatcher (dispatcher_hq) -> rider_sam_02',
-          timestamp: subMinutes(36),
-        },
-        {
-          id: 'hist-3-3',
-          order_id: id3,
-          status: 'picked_up',
-          changed_by: 'rider_sam_02',
-          timestamp: subMinutes(12),
-        },
-      ],
-    },
-    {
-      id: id4,
-      retailer_id: 'ret_northstar_01',
-      customer_name: 'Marcus Aurelius Thorne',
-      customer_phone: '+1 (555) 901-4472',
-      delivery_address: '300 Grand Avenue, Penthouse B',
-      item_description: 'Botanical Immunity Elixirs (4-Pack)',
-      status: 'delivered',
-      assigned_rider_id: 'rider_alex_01',
-      qr_token: token4,
-      created_at: subMinutes(130),
-      updated_at: subMinutes(52),
-      status_history: [
-        {
-          id: 'hist-4-1',
-          order_id: id4,
-          status: 'requested',
-          changed_by: 'ret_northstar_01',
-          timestamp: subMinutes(130),
-        },
-        {
-          id: 'hist-4-2',
-          order_id: id4,
-          status: 'assigned',
-          changed_by: 'dispatcher (dispatcher_hq) -> rider_alex_01',
-          timestamp: subMinutes(105),
-        },
-        {
-          id: 'hist-4-3',
-          order_id: id4,
-          status: 'picked_up',
-          changed_by: 'rider_alex_01',
-          timestamp: subMinutes(80),
-        },
-        {
-          id: 'hist-4-4',
-          order_id: id4,
-          status: 'delivered',
-          changed_by: 'rider (rider_alex_01) [QR Scan Verified]',
-          timestamp: subMinutes(52),
-        },
-      ],
-    },
-  ];
-}
-
-initSeedData();
 
 // API Router Handlers
 const handleGetCatalog = (req: express.Request, res: express.Response) => {
   res.json(catalogStore);
+};
+
+const handleCreateCatalogItem = (req: express.Request, res: express.Response) => {
+  const { name, description, category, price, image_url, estimated_prep_minutes } = req.body;
+
+  if (!name || !description || !category || !price) {
+    return res.status(400).json({ error: 'Missing required catalog fields: name, description, category, price' });
+  }
+
+  const newItem: CatalogItemRecord = {
+    id: `cat_${crypto.randomBytes(4).toString('hex')}`,
+    name,
+    description,
+    category,
+    price,
+    image_url: image_url || '',
+    estimated_prep_minutes: estimated_prep_minutes || '',
+  };
+
+  catalogStore.push(newItem);
+  res.status(201).json(newItem);
 };
 
 const handleGetOrders = (req: express.Request, res: express.Response) => {
@@ -480,14 +314,10 @@ const handleGetSingleOrder = (req: express.Request, res: express.Response) => {
   res.json(order);
 };
 
-const handleResetDemo = (req: express.Request, res: express.Response) => {
-  initSeedData();
-  res.json({ status: 'ok', message: 'Demo data reseeded successfully', order_count: ordersStore.length });
-};
-
 // Register routes both with and without /api prefix for maximum compatibility
 const registerRoutes = (prefix = '') => {
   app.get(`${prefix}/catalog`, handleGetCatalog);
+  app.post(`${prefix}/catalog`, handleCreateCatalogItem);
   app.get(`${prefix}/products`, handleGetCatalog);
   app.get(`${prefix}/orders`, handleGetOrders);
   app.post(`${prefix}/orders`, handleCreateOrder);
@@ -496,7 +326,6 @@ const registerRoutes = (prefix = '') => {
   app.patch(`${prefix}/orders/:id/assign`, handleAssignOrder);
   app.patch(`${prefix}/orders/:id/status`, handleUpdateStatus);
   app.post(`${prefix}/orders/:id/confirm-scan`, handleConfirmScan);
-  app.post(`${prefix}/reset-demo`, handleResetDemo);
   app.get(`${prefix}/health`, (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 };
 
