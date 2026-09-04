@@ -4,13 +4,11 @@ import { RetailerView } from './views/RetailerView';
 import { DispatcherView } from './views/DispatcherView';
 import { RiderView } from './views/RiderView';
 import { TrackOrderView } from './views/TrackOrderView';
-import { resetDemo } from './api/ordersClient';
 import {
   Compass,
   Store,
   Bike,
   Sparkles,
-  RotateCcw,
   ShoppingBag,
   Truck,
   ExternalLink,
@@ -19,7 +17,6 @@ import {
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState<string>('');
-  const [resetting, setResetting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Sync state with browser hash/pathname
@@ -46,22 +43,6 @@ export default function App() {
       window.history.pushState({}, '', `/${cleanPath}`);
     } else {
       window.location.hash = cleanPath;
-    }
-  };
-
-  const handleResetDemoData = async () => {
-    if (resetting) return;
-    setResetting(true);
-    try {
-      await resetDemo();
-      setToastMessage('Demo dataset restored to initial seed state.');
-      setTimeout(() => setToastMessage(null), 3000);
-      // Reload current view state
-      window.dispatchEvent(new Event('storage'));
-    } catch (err: any) {
-      alert(`Reset failed: ${err.message}`);
-    } finally {
-      setResetting(false);
     }
   };
 
@@ -192,19 +173,6 @@ export default function App() {
                 <span>Rider App</span>
               </button>
             </nav>
-
-            {/* Quick Demo Reseed Trigger */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleResetDemoData}
-                disabled={resetting}
-                className="px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white text-xs font-mono flex items-center gap-1.5 transition-colors border border-stone-700 shrink-0"
-                title="Reset demo orders dataset"
-              >
-                <RotateCcw className={`w-3 h-3 ${resetting ? 'animate-spin' : ''}`} />
-                <span className="hidden md:inline">Reseed Demo</span>
-              </button>
-            </div>
           </div>
         </div>
       </header>
