@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useOrdersPolling, assignOrder } from '../api/ordersClient';
 import { Order, SEEDED_RIDERS, RiderProfile } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
