@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Order, CatalogItem, CreateOrderPayload, CreateOrderResponse } from '../types';
 
-const API_BASE = '/api';
+// In production (Vercel), the frontend is a static build with no backend of
+// its own — VITE_API_BASE_URL must point at the deployed FastAPI service (Render).
+// Locally, server.ts answers /api directly, so the fallback keeps `npm run dev` working.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export async function fetchCatalog(): Promise<CatalogItem[]> {
   const res = await fetch(`${API_BASE}/catalog`);
@@ -97,12 +100,6 @@ export async function trackOrder(orderId: string, token: string): Promise<Order>
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || err.detail || 'Invalid or expired tracking token');
   }
-  return res.json();
-}
-
-export async function resetDemo(): Promise<{ status: string; message: string }> {
-  const res = await fetch(`${API_BASE}/reset-demo`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to reset demo data');
   return res.json();
 }
 
